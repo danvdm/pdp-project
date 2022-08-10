@@ -1,0 +1,1998 @@
+---
+title: "Report pdp networks"
+author: "Daniel van der Meer"
+date: "5/18/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r Import, include=FALSE}
+rm(list = ls())
+library(tidyverse)
+
+working_dir <- "~/pdp_project" #enter the place where you saved the folder
+
+# Function to load a whole directory into the environment
+sourceDir <- function(path, trace = TRUE, ...) {
+  for (nm in list.files(path, pattern = "[.][RrSsQq]$")) {
+    if(trace) cat(nm,":")
+    source(file.path(path, nm), ...)
+    if(trace) cat("\n")
+  }
+}
+
+setwd(working_dir) # Set working directory
+load("input_data/Raijmakers_Data.RData") # load simple data
+load("input_data/circles_and_triangles_big_small.RData") # load image data
+sourceDir("functions")
+
+# create y-values
+Y <- list("Y_circle" = c(0, 0, 1, 1),
+          "Y_triangle" = c(1, 1, 0, 0),
+          "Y_black" = c(1, 0, 1, 0),
+          "Y_white" = c(0, 1, 0, 1))
+```
+
+### Direct replication
+
+```{r Data, include=FALSE}
+data_X <- X
+data_Y1 <- Y$Y_circle
+data_Y2 <- Y$Y_triangle
+data_Y3 <- Y$Y_black
+data_Y4 <- Y$Y_white
+
+simulations <- 100
+
+n_iter_max <- 500
+l_rates_pre <- c(0.5, 0.5)
+l_rates_rev <- c(0.5, 0.5)
+l_rates_nrev <- c(0.5, 0.5)
+```
+
+
+
+```{r, Simulations Raijmakers, echo=FALSE, eval = FALSE}
+# Simulates the data; this chunk is not evaluated when knitting
+
+data_UC_842 <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, 
+                            Y3 = data_Y3, nsim = simulations, constrained = F, 
+                            n_hidden = c(4), batch_size = 1, 
+                            learning_rates1 = l_rates_pre, 
+                            learning_rates2 = l_rates_rev, 
+                            learning_rates3 = l_rates_nrev, 
+                            accuracy = 1, n_iter = n_iter_max, use_acc = F, 
+                            min_correct = 10, momentum = 0.5, threshold = 0.55)
+
+data_C_842 <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, 
+                           Y3 = data_Y3, nsim = simulations, 
+                           constrained =c(T), 
+                           n_hidden = c(4), batch_size = 1, 
+                           learning_rates1 = l_rates_pre, 
+                           learning_rates2 = l_rates_rev, 
+                           learning_rates3 = l_rates_nrev, 
+                           accuracy = 1, n_iter = n_iter_max, use_acc = F,
+                           min_correct = 10, momentum = 0.5)
+                            
+
+data_UC_822 <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, 
+                            Y3 = data_Y3, nsim = simulations, constrained = F, 
+                            n_hidden = c(2), batch_size = 1, 
+                            learning_rates1 = l_rates_pre, 
+                            learning_rates2 = l_rates_rev, 
+                            learning_rates3 = l_rates_nrev, 
+                            accuracy = 1, n_iter = n_iter_max, use_acc = F, 
+                            min_correct = 10, momentum = 0.5)
+
+data_C_822 <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, Y3 =
+                           data_Y3, nsim = simulations, 
+                           constrained = c(T), 
+                           n_hidden = c(2), batch_size = 1, 
+                           learning_rates1 = l_rates_pre, 
+                           learning_rates2 = l_rates_rev, 
+                           learning_rates3 = l_rates_nrev, 
+                           accuracy = 1, n_iter = n_iter_max, use_acc = F,  
+                           min_correct = 10, momentum = 0.5)
+
+```
+
+
+```{r Save Data, include=FALSE, eval=FALSE}
+# Saves the data; this chunk is not evaluated when knitting
+
+data_Rajmakers_rep <- list("data_UC_842" = data_UC_842, 
+                           "data_C_842" = data_C_842, 
+                           "data_UC_822" = data_UC_822, 
+                           "data_C_822" = data_C_822)
+
+saveRDS(data_Rajmakers_rep, file="final_data/data_Rajmakers_rep.RData")
+```
+
+```{r Load data, include=FALSE}
+# Loads the data
+
+data_Rajmakers_rep <- readRDS("final_data/data_Rajmakers_rep.RData")
+```
+
+### New results
+
+```{r statistic_results, include=FALSE}
+# Calculates statistics and prepares the data for teh table and the boxplot
+
+cycles_UC_842 <- data.frame("pre" = data_Rajmakers_rep$data_UC_842$pre$iterations, 
+                 "rev" = data_Rajmakers_rep$data_UC_842$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep$data_UC_842$nrev$iterations)
+cycles_UC_822 <- data.frame("pre" = data_Rajmakers_rep$data_UC_822$pre$iterations, 
+                 "rev" = data_Rajmakers_rep$data_UC_822$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep$data_UC_822$nrev$iterations)
+cycles_C_842 <- data.frame("pre" = data_Rajmakers_rep$data_C_842$pre$iterations, 
+                 "rev" = data_Rajmakers_rep$data_C_842$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep$data_C_842$nrev$iterations)
+cycles_C_822 <- data.frame("pre" = data_Rajmakers_rep$data_C_822$pre$iterations, 
+                 "rev" = data_Rajmakers_rep$data_C_822$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep$data_C_822$nrev$iterations)
+
+
+cycles_UC_842$type <- "UC_842"
+cycles_UC_822$type <- "UC_822"
+cycles_C_842$type <- "C_842"
+cycles_C_822$type <- "C_822"
+
+new1 <- cycles_UC_842[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new2 <- cycles_UC_822[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new3 <- cycles_C_842[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new4 <- cycles_C_822[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+final <- rbind(new1, new2, new3, new4)
+
+UC_842_aov <- aov(value ~ shift, data = final[, c(1, 2, 3)][final$type == "UC_842", ])
+UC_822_aov <- aov(value ~ shift, data = final[, c(1, 2, 3)][final$type == "UC_822", ])
+C_842_aov <- aov(value ~ shift, data = final[, c(1, 2, 3)][final$type == "C_842", ])
+C_822_aov <- aov(value ~ shift, data = final[, c(1, 2, 3)][final$type == "C_822", ])
+
+```
+
+
+```{r Apa_table_1, echo=FALSE}
+# Displays a table with the results
+
+mat1 <- matrix(round(c(
+              unname(sapply(cycles_UC_842[, 1:3], mean)),
+              unname(sapply(cycles_UC_822[, 1:3], mean)),
+              unname(sapply(cycles_C_842[, 1:3], mean)), 
+              unname(sapply(cycles_C_822[, 1:3], mean))), 2), ncol = 3, byrow = T)
+mat2 <- matrix(round(c(
+              unname(sapply(cycles_UC_842[, 1:3], sd)),
+              unname(sapply(cycles_UC_822[, 1:3], sd)),
+              unname(sapply(cycles_C_842[, 1:3], sd)),
+              unname(sapply(cycles_C_822[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3 <- matrix(c(mat1[, 1], mat2[, 1], mat1[, 2], mat2[, 2], mat1[, 3], mat2[, 3], 
+                 c(
+                   round(summary(UC_842_aov)[[1]][4][[1]][1], 2),
+                   round(summary(UC_822_aov)[[1]][4][[1]][1], 2),
+                   round(summary(C_842_aov)[[1]][4][[1]][1], 2),
+                   round(summary(C_822_aov)[[1]][4][[1]][1], 2)), 
+                 c(
+                   ifelse(round(summary(UC_842_aov)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_842_aov)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(UC_822_aov)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_822_aov)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(C_842_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_842_aov)[[1]][5][[1]][1], 3)), 
+                   ifelse(round(summary(C_822_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_822_aov)[[1]][5][[1]][1], 3))),
+                  c(
+                    summary(UC_842_aov)[[1]][1][[1]][2],
+                   summary(UC_822_aov)[[1]][1][[1]][2],
+                   summary(C_842_aov)[[1]][1][[1]][2],
+                   summary(C_822_aov)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+rownames(mat3) <- c(
+          "UC 842", "UC 822", 
+          "C 842", "C 822")
+colnames(mat3) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3)
+
+```
+
+
+```{r Boxplot1, echo=FALSE}
+# Displays a boxplot
+
+cycles_UC_842$constrained = F
+cycles_UC_842$h_layers = as.factor(4)
+cycles_UC_822$constrained = F
+cycles_UC_822$h_layers = as.factor(2)
+cycles_C_842$constrained = T
+cycles_C_842$h_layers = as.factor(4)
+cycles_C_822$constrained = T
+cycles_C_822$h_layers = as.factor(2)
+
+data_all <- rbind(
+  cycles_UC_842, cycles_UC_822,
+  cycles_C_842, cycles_C_822)
+data_all <- data_all %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("pre", "rev", "nrev")) * h_layers * constrained, data=data_all, frame = FALSE, 
+        col = c("#00AFBB", "#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", cex = 1.4, cex.lab = 1.8, cex.axis = 1.4, lwd = 1.5)
+axis(1, at = c(2, 5, 8, 11),
+     labels = c(
+       "UC 842", "UC 822",
+       "C 842", "C 822"), cex.axis = 1.4)
+abline(v = c(3.5, 6.5, 9.5), lty = 2, lwd = 1.5)
+legend("topright", legend = c("pre", "rev", "nrev"), 
+       fill = c("#00AFBB", "#E7B800", "#ff4800"), bty="n", 
+       cex = 1.4)
+
+
+```
+
+### Results raijmakers 
+
+```{r results raijmakers, echo=FALSE}
+# Diplays the results of Raijmakers et. al for comparison
+
+mat7 <- matrix(round(c(183.130, 78.130, 
+                 209.580, 103.620, 
+                 151.510, 142.160, 
+                 180.040, 183.130), 2), ncol = 2, byrow = T)
+mat8 <- matrix(round(c(29.425, 15.745, 
+                 33.897, 34.303, 
+                 25.255, 25.647, 
+                 24.194, 33.514), 2), ncol = 2, byrow = T)
+mat9 <- matrix(c(mat7[, 1], mat8[, 1], mat7[, 2], mat8[, 2], 
+                 c(990.44, 6.75, 482.76, 0.46), 
+                 c(0.0001, 0.0101, 0.0001, 0.4556), 
+                 c(198, 198, 198, 198)), 
+               ncol = 7)
+
+rownames(mat9) <- c("UC 842", "UC 822", "C 842", "C 822")
+colnames(mat9) <- c("Mean Reversal shift", "Sd", "Mean Non-reversal shift", "Sd", 
+                    "F-Value", "p", "df")
+
+knitr::kable(mat9)
+```
+
+### Node activation and visualization of the network when retrained
+
+```{r Idividual PDPs, echo=FALSE}
+# Shows some effects of changing the parameters
+
+bs <- 1
+
+UC_842 <- pdp(data_X, data_Y1, n_hidden = c(4), constrained = F, n_iter = 200,
+            use_accuracy = F, learning_rates = 0.5, batch_size = bs)
+C_842 <- pdp(data_X, data_Y1, n_hidden = c(4), constrained = T, n_iter = 200,
+            use_accuracy = F, learning_rates = 0.5, batch_size = bs)
+UC_822 <- pdp(data_X, data_Y1, n_hidden = c(2), constrained = F, n_iter = 200,
+            use_accuracy = F, learning_rates = 0.5, batch_size = bs)
+C_822 <- pdp(data_X, data_Y1, n_hidden = c(2), constrained = T, n_iter = 200,
+            use_accuracy = F, learning_rates = 0.5, batch_size = bs)
+
+par(mfrow = c(2, 2), mai = c(0, 0, 0.15, 0.15))
+plot_net(UC_822$weights, no_bias_in_input = T, main = "UC 822")
+plot_net(C_822$weights, no_bias_in_input = T, main = "C 822")
+plot_net(UC_842$weights, no_bias_in_input = T, main = "UC 842")
+plot_net(C_842$weights, no_bias_in_input = T, main = "C 842")
+
+par(mfrow = c(2, 2), mai = c(0.3, 0.3, 0.15, 0.15))
+get_active_neurons_means(weights = UC_842$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 1, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left", 
+                             "black right"), legend = F, plot_lines = F,
+                         main = "Node activations 1st layer UC 842")
+
+get_active_neurons_means(weights = C_842$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 1, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left",
+                             "black right"), legend = F, plot_lines = F,
+                         main = "Node activations 1st layer C 842")
+
+get_active_neurons_means(weights = UC_842$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 2, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left",
+                             "black right"), 
+                         pos_leg = "top", plot_lines = F,
+                         main = "Node activations 2nd layer UC 842")
+
+get_active_neurons_means(weights = C_842$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 2, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left",
+                             "black right"), 
+                         pos_leg = "top", plot_lines = F,
+                         main = "Node activations 2nd layer C 842")
+
+```
+
+### Only Retraining the Last Layer 
+
+```{r, last layer only, eval=FALSE, echo=FALSE}
+
+# Parameters for the simulation
+
+simulations <- 100
+
+n_iter_max <- 500
+l_rates_pre <- c(0.5, 0.5)
+l_rates_rev <- c(0, 0.5)
+l_rates_nrev <- c(0, 0.5)
+```
+
+```{r, Simulations Raijmakers ll only, echo=FALSE, eval = FALSE}
+
+# Simulates the extended direct replication when only the last layer is retrained
+# This chunk is not evaluated when knitted
+
+data_UC_842_ll <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, 
+                            Y3 = data_Y3, nsim = simulations, constrained = F, 
+                            n_hidden = c(4), batch_size = 1, 
+                            learning_rates1 = l_rates_pre, use_acc = F,
+                            learning_rates2 = l_rates_rev, 
+                            learning_rates3 = l_rates_nrev, 
+                            accuracy = 1, n_iter = n_iter_max, 
+                            min_correct = 10, momentum = 0.5)
+
+data_C_842_ll <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, 
+                           Y3 = data_Y3, nsim = simulations, 
+                           constrained =c(T), use_acc = F,
+                           n_hidden = c(4), batch_size = 1, 
+                           learning_rates1 = l_rates_pre, 
+                           learning_rates2 = l_rates_rev, 
+                           learning_rates3 = l_rates_nrev, 
+                           accuracy = 1, n_iter = n_iter_max, 
+                           min_correct = 10, momentum = 0.5)
+                            
+
+data_UC_822_ll <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, 
+                            Y3 = data_Y3, nsim = simulations, constrained = F, 
+                            n_hidden = c(2), batch_size = 1, use_acc = F,
+                            learning_rates1 = l_rates_pre, 
+                            learning_rates2 = l_rates_rev, 
+                            learning_rates3 = l_rates_nrev, 
+                            accuracy = 1, n_iter = n_iter_max,
+                            min_correct = 10, momentum = 0.5)
+
+data_C_822_ll <- simulate_pdp(X = data_X, Y1 = data_Y1, Y2 = data_Y2, Y3 =
+                           data_Y3, nsim = simulations, 
+                           constrained = c(T), use_acc = F,
+                           n_hidden = c(2), batch_size = 1, 
+                           learning_rates1 = l_rates_pre, 
+                           learning_rates2 = l_rates_rev, 
+                           learning_rates3 = l_rates_nrev, 
+                           accuracy = 1, n_iter = n_iter_max, 
+                           min_correct = 10, momentum = 0.5)
+
+```
+
+```{r Save Data ll, include=FALSE, eval=FALSE}
+# Saves the data; this chunk is not evaluated when knitted
+
+data_Rajmakers_rep_ll <- list("data_UC_842_ll" = data_UC_842_ll, 
+                           "data_C_842_ll" = data_C_842_ll, 
+                           "data_UC_822_ll" = data_UC_822_ll, 
+                           "data_C_822_ll" = data_C_822_ll)
+
+saveRDS(data_Rajmakers_rep_ll, file="final_data/data_Rajmakers_rep_ll.RData")
+```
+
+```{r Load data ll, include=FALSE}
+# Loads the data
+
+data_Rajmakers_rep_ll <- readRDS("final_data/data_Rajmakers_rep_ll.RData")
+```
+
+```{r statistic_results_2, include=FALSE}
+# Computes statistics and prepares the data 
+
+cycles_UC_842_ll <- data.frame("pre" = data_Rajmakers_rep_ll$data_UC_842$pre$iterations,
+                 "rev" = data_Rajmakers_rep_ll$data_UC_842$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_ll$data_UC_842$nrev$iterations)
+cycles_UC_822_ll <- data.frame("pre" = data_Rajmakers_rep_ll$data_UC_822$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_ll$data_UC_822$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_ll$data_UC_822$nrev$iterations)
+cycles_C_842_ll <- data.frame("pre" = data_Rajmakers_rep_ll$data_C_842$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_ll$data_C_842$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_ll$data_C_842$nrev$iterations)
+cycles_C_822_ll <- data.frame("pre" = data_Rajmakers_rep_ll$data_C_822$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_ll$data_C_822$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_ll$data_C_822$nrev$iterations)
+
+
+cycles_UC_842_ll$type <- "UC_842"
+cycles_UC_822_ll$type <- "UC_822"
+cycles_C_842_ll$type <- "C_842"
+cycles_C_822_ll$type <- "C_822"
+
+new1_ll <- cycles_UC_842_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new2_ll <- cycles_UC_822_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new3_ll <- cycles_C_842_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new4_ll <- cycles_C_822_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+final_ll <- rbind(new1_ll, new2_ll, new3_ll, new4_ll)
+
+UC_842_aov_ll <- aov(value ~ shift, data = final_ll[, c(1, 2, 3)][final_ll$type == "UC_842", ])
+UC_822_aov_ll <- aov(value ~ shift, data = final_ll[, c(1, 2, 3)][final_ll$type == "UC_822", ])
+C_842_aov_ll <- aov(value ~ shift, data = final_ll[, c(1, 2, 3)][final_ll$type == "C_842", ])
+C_822_aov_ll <- aov(value ~ shift, data = final_ll[, c(1, 2, 3)][final_ll$type == "C_822", ])
+
+```
+
+```{r Apa_table_2, echo=FALSE}
+
+# displays a table
+
+mat1_ll <- matrix(round(c(
+              unname(sapply(cycles_UC_842_ll[, 1:3], mean)),
+              unname(sapply(cycles_UC_822_ll[, 1:3], mean)),
+              unname(sapply(cycles_C_842_ll[, 1:3], mean)), 
+              unname(sapply(cycles_C_822_ll[, 1:3], mean))), 2), ncol = 3, byrow = T)
+mat2_ll <- matrix(round(c(
+              unname(sapply(cycles_UC_842_ll[, 1:3], sd)),
+              unname(sapply(cycles_UC_822_ll[, 1:3], sd)),
+              unname(sapply(cycles_C_842_ll[, 1:3], sd)), 
+              unname(sapply(cycles_C_822_ll[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_ll <- matrix(c(mat1_ll[, 1], mat2_ll[, 1], mat1_ll[, 2], mat2_ll[, 2], 
+                    mat1_ll[, 3], mat2_ll[, 3], 
+                 c(
+                   round(summary(UC_842_aov_ll)[[1]][4][[1]][1], 2),
+                   round(summary(UC_822_aov_ll)[[1]][4][[1]][1], 2),
+                   round(summary(C_842_aov_ll)[[1]][4][[1]][1], 2),
+                   round(summary(C_822_aov_ll)[[1]][4][[1]][1], 2)), 
+                 c(
+                   ifelse(round(summary(UC_842_aov_ll)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_842_aov_ll)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(UC_822_aov_ll)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_822_aov_ll)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(C_842_aov_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_842_aov_ll)[[1]][5][[1]][1], 3)), 
+                   ifelse(round(summary(C_822_aov_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_822_aov_ll)[[1]][5][[1]][1], 3))),
+                  c(
+                    summary(UC_842_aov_ll)[[1]][1][[1]][2],
+                   summary(UC_822_aov_ll)[[1]][1][[1]][2],
+                   summary(C_842_aov_ll)[[1]][1][[1]][2],
+                   summary(C_822_aov_ll)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+rownames(mat3_ll) <- c("UC 842", "UC 822", "C 842", "C 822")
+colnames(mat3_ll) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_ll)
+
+```
+
+```{r Apa_table_2 comparison reversal shift times, echo=FALSE}
+# Calculating some statistics
+
+final_all_simple_network <- rbind(final_ll, final)
+final_all_simple_network["retraining_type"] <- c(rep("last_layer", 800), rep("all_layers", 800))
+final_all_simple_network
+
+UC_842_aov_rev_s <- aov(value ~ retraining_type, data = final_all_simple_network[, c(1, 2, 3, 4)][final_all_simple_network$type == "UC_842", ])
+UC_822_aov_rev_s <- aov(value ~ retraining_type, data = final_all_simple_network[, c(1, 2, 3, 4)][final_all_simple_network$type == "C_842", ])
+C_842_aov_rev_s <- aov(value ~ retraining_type, data = final_all_simple_network[, c(1, 2, 3, 4)][final_all_simple_network$type == "UC_822", ])
+C_822_aov_rev_s <- aov(value ~ retraining_type, data = final_all_simple_network[, c(1, 2, 3, 4)][final_all_simple_network$type == "C_822", ])
+
+summary(UC_842_aov_rev_s)
+summary(C_842_aov_rev_s)
+summary(UC_822_aov_rev_s)
+summary(C_822_aov_rev_s)
+
+```
+
+### Training the last layer
+
+```{r Boxplot2, echo=FALSE}
+# Boxplots showing the results of the extended direct replication (Last layer training)
+
+cycles_UC_842_ll$constrained = F
+cycles_UC_842_ll$h_layers = as.factor(4)
+cycles_UC_822_ll$constrained = F
+cycles_UC_822_ll$h_layers = as.factor(2)
+cycles_C_842_ll$constrained = T
+cycles_C_842_ll$h_layers = as.factor(4)
+cycles_C_822_ll$constrained = T
+cycles_C_822_ll$h_layers = as.factor(2)
+
+data_all_ll <- rbind(
+  cycles_UC_842_ll, cycles_UC_822_ll,
+  cycles_C_842_ll, cycles_C_822_ll)
+data_all_ll <- data_all_ll %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("pre", "rev", "nrev")) * h_layers * constrained, data=data_all_ll, frame = FALSE, 
+        col = c("#00AFBB", "#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", cex = 1.4, cex.lab = 1.8, cex.axis = 1.4, lwd = 1.5)
+axis(1, at = c(2, 5, 8, 11),
+     labels = c(
+       "UC 842", "UC 822",
+       "C 842", "C 822"), cex.axis = 1.4)
+abline(v = c(3.5, 6.5, 9.5), lty = 2, lwd = 1.5)
+legend("topleft", legend = c("pre", "rev", "nrev"), 
+       fill = c("#00AFBB", "#E7B800", "#ff4800"), bty="n", cex = 1.4)
+
+
+```
+
+
+## Possibility to get both?
+
+After non-reversal shift and if only the first layer weight matrix is transferred, both stimulus dimensions are represented in the middle layer. 
+
+```{r Idividual re-retrain PDPs constrained, echo = FALSE, include=FALSE}
+# Training some networks for later plotting
+
+bs <- 1
+set.seed(123)
+
+
+
+C_842_pre <- pdp(data_X, data_Y1, n_hidden = c(4), constrained = T, 
+                  n_iter = 200, use_accuracy = F, learning_rates = 0.5,
+                  batch_size = bs)
+
+C_842_nrev_first <- pdp(data_X, data_Y3, n_hidden = c(4), constrained = c(T),
+                    n_iter = 200, use_accuracy = F, 
+                    learning_rates = c(0.5, 0.5),  batch_size = bs, 
+                    prev_wts = list(C_842_pre$weights[[1]]), 
+                    plot_loss = F)
+C_842_nrev_all <- pdp(data_X, data_Y3, n_hidden = c(4), constrained = c(T),
+                    n_iter = 200, use_accuracy = F, 
+                    learning_rates = c(0.5, 0.5),  batch_size = bs, 
+                    prev_wts = C_842_pre$weights, 
+                    plot_loss = F)
+
+C_842_re_rev_first <- pdp(data_X, data_Y4, n_hidden = c(4), constrained = c(F), n_iter = 200, use_accuracy = F, 
+                   learning_rates = c(0, 0.5), 
+                    batch_size = bs, prev_wts = C_842_nrev_first$weights, 
+                   plot_loss = F)
+C_842_re_nrev_first <- pdp(data_X, data_Y2, n_hidden = c(4), constrained = c(F), n_iter = 200, use_accuracy = F, 
+                   learning_rates = c(0, 0.5), 
+                    batch_size = bs, prev_wts = C_842_nrev_first$weights, 
+                   plot_loss = F)
+
+C_842_re_rev_all <- pdp(data_X, data_Y4, n_hidden = c(4), constrained = c(F),
+                    n_iter = 200, use_accuracy = F, 
+                   learning_rates = c(0, 0.5), 
+                    batch_size = bs, prev_wts = C_842_nrev_all$weights, 
+                   plot_loss = F)
+C_842_re_nrev_all <- pdp(data_X, data_Y2, n_hidden = c(4), constrained = c(F), n_iter = 200, use_accuracy = F, 
+                   learning_rates = c(0, 0.5), 
+                    batch_size = bs, prev_wts = C_842_nrev_all$weights, 
+                   plot_loss = F)
+
+```
+
+
+```{r biased concept pre-learning (CPL) simulation, include=FALSE, eval=FALSE}
+# biased concept pre-learning (CPL) simulation 
+# Is not evaluated when knitting
+
+sims <- 100
+itermax <- 500
+
+UC_842_sim2_res_all <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = F, 
+                                 n_hidden = 4, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = T)
+
+UC_842_sim2_res_first <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = F, 
+                                 n_hidden = 4, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = F)
+
+UC_822_sim2_res_all <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = F, 
+                                 n_hidden = 2, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = T)
+
+UC_822_sim2_res_first <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = F, 
+                                 n_hidden = 2, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = F)
+
+C_842_sim2_res_all <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = T, 
+                                 n_hidden = 4, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = T)
+
+C_842_sim2_res_first <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = T, 
+                                 n_hidden = 4, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = F)
+
+C_822_sim2_res_all <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = T, 
+                                 n_hidden = 2, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = T)
+
+C_822_sim2_res_first <- simulate_pdp_2(X = data_X, Y1 = data_Y1, Y2 = data_Y2,
+                                        Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = sims, constrained = T, 
+                                 n_hidden = 2, use_acc = F,
+                      n_iter = itermax, batch_size = 1, 
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = F)
+
+```
+
+
+
+```{r unbiased CPL simulation simple network, include=FALSE}
+# Simulate the unbiased CPL for the simple network
+
+nsims <- 100
+
+simple_network_perfect_hidden_842_UC <- simulate_pdp_2(X = data_X, 
+                                                       Y1 = data_X[, c(2, 4, 6, 8)], 
+                                      Y2 = data_Y2,  Y3 = data_Y3,
+                                 Y4 = data_Y4, nsim = nsims, constrained = F, 
+                                 n_hidden = c(NA, 4, 4, 4), use_acc = F,
+                      n_iter = 2000, batch_size = 1, binarize = c(F, T, T, T),
+                      learning_rates1 = c(0.5, 0.5), 
+                      learning_rates2 = c(0, 0.5), 
+                      learning_rates3 = c(0, 0.5), transfer_all = T)
+
+```
+
+
+```{r results_simple_perfect_hidden, echo=FALSE}
+
+# Show some details about the unbiased CPL in the simple network
+
+mrev <- mean(simple_network_perfect_hidden_842_UC$rev$iterations)
+mnrev <- mean(simple_network_perfect_hidden_842_UC$nrev$iterations)
+sdrev <- sd(simple_network_perfect_hidden_842_UC$rev$iterations)
+sdnrev <- sd(simple_network_perfect_hidden_842_UC$nrev$iterations)
+
+data_ll_unbiased_CPL <- data.frame("rev" = simple_network_perfect_hidden_842_UC$rev$iterations, "nrev" = simple_network_perfect_hidden_842_UC$nrev$iterations)
+data_ll_unbiased_CPL <- data_ll_unbiased_CPL %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+UC_842_aov_inbiasedCPL <- aov(value ~ shift, data = data_ll_unbiased_CPL)
+sum_CPL <-summary(UC_842_aov_inbiasedCPL)
+print(sum_CPL)
+```
+
+When initialized with a perfect representation, and the shifts conducted on the last layer only, the reversal shift is slower (mean = `r mrev`, sd = `r sdrev`) than the nonreversal (mean = `r mnrev`, sd = `r sdnrev`) one. 
+
+```{r Save Data special training regimes ll, include=FALSE, eval=FALSE}
+
+# Saves the data; is not evaluated when knitting
+
+## Note: res_all means that all layers have been transferred while res_first means that only the first layers have been transferred and the last layer has been reinitialized. 
+# Later: cycles_UC_842_reset_ll contains the data where all layers have been transferred while cycles_UC_842_no_reset_ll contains the data where only the first layers have been transferred. 
+
+data_Rajmakers_rep_reset_ll <- list("UC_842_sim2_res_all" = UC_842_sim2_res_all, 
+                           "UC_842_sim2_res_first" = UC_842_sim2_res_first, 
+                           "UC_822_sim2_res_all" = UC_822_sim2_res_all, 
+                           "UC_822_sim2_res_first" = UC_822_sim2_res_first, 
+                           "C_842_sim2_res_all" = C_842_sim2_res_all, 
+                           "C_842_sim2_res_first" = C_842_sim2_res_first, 
+                           "C_822_sim2_res_all" = C_822_sim2_res_all, 
+                           "C_822_sim2_res_first" = C_822_sim2_res_first)
+
+saveRDS(data_Rajmakers_rep_reset_ll, file="final_data/data_Rajmakers_rep_reset_ll.RData")
+```
+
+```{r Load data special training regimes ll, include=FALSE}
+# Load the data for teh biased CPL of the simple network
+
+data_Rajmakers_rep_reset_ll <- readRDS("final_data/data_Rajmakers_rep_reset_ll.RData")
+```
+
+### Not resetting last layer
+
+```{r statistic_results special training regimes reset_ll, include=FALSE}
+# Calculate some statistics and prepare the data
+
+cycles_UC_842_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$UC_842_sim2_res_all$pre$iterations,
+                 "rev" = data_Rajmakers_rep_reset_ll$UC_842_sim2_res_all$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$UC_842_sim2_res_all$nrev$iterations)
+cycles_UC_822_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$UC_822_sim2_res_all$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_reset_ll$UC_822_sim2_res_all$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$UC_822_sim2_res_all$nrev$iterations)
+cycles_C_842_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$C_842_sim2_res_all$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_reset_ll$C_842_sim2_res_all$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$C_842_sim2_res_all$nrev$iterations)
+cycles_C_822_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$C_822_sim2_res_all$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_reset_ll$C_822_sim2_res_all$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$C_822_sim2_res_all$nrev$iterations)
+
+
+cycles_UC_842_reset_ll$type <- "UC_842"
+cycles_UC_822_reset_ll$type <- "UC_822"
+cycles_C_842_reset_ll$type <- "C_842"
+cycles_C_822_reset_ll$type <- "C_822"
+
+new1_reset_ll <- cycles_UC_842_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new2_reset_ll <- cycles_UC_822_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new3_reset_ll <- cycles_C_842_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new4_reset_ll <- cycles_C_822_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+final_reset_ll <- rbind(new1_reset_ll, new2_reset_ll, new3_reset_ll, new4_reset_ll)
+
+UC_842_aov_reset_ll <- aov(value ~ shift, data = final_reset_ll[, c(1, 2, 3)][final_reset_ll$type == "UC_842", ])
+UC_822_aov_reset_ll <- aov(value ~ shift, data = final_reset_ll[, c(1, 2, 3)][final_reset_ll$type == "UC_822", ])
+C_842_aov_reset_ll <- aov(value ~ shift, data = final_reset_ll[, c(1, 2, 3)][final_reset_ll$type == "C_842", ])
+C_822_aov_reset_ll <- aov(value ~ shift, data = final_reset_ll[, c(1, 2, 3)][final_reset_ll$type == "C_822", ])
+
+```
+
+```{r Apa_table special training regimes reset_ll, echo=FALSE}
+# Display some tables about the biased CPL + last layer training
+
+mat1_reset_ll <- matrix(round(c(
+              unname(sapply(cycles_UC_842_reset_ll[, 1:3], mean)),
+              unname(sapply(cycles_UC_822_reset_ll[, 1:3], mean)),
+              unname(sapply(cycles_C_842_reset_ll[, 1:3], mean)), 
+              unname(sapply(cycles_C_822_reset_ll[, 1:3], mean))), 2), ncol = 3, byrow = T)
+mat2_reset_ll <- matrix(round(c(
+              unname(sapply(cycles_UC_842_reset_ll[, 1:3], sd)),
+              unname(sapply(cycles_UC_822_reset_ll[, 1:3], sd)),
+              unname(sapply(cycles_C_842_reset_ll[, 1:3], sd)), 
+              unname(sapply(cycles_C_822_reset_ll[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_reset_ll <- matrix(c(mat1_reset_ll[, 1], mat2_reset_ll[, 1], mat1_reset_ll[, 2], mat2_reset_ll[, 2], mat1_reset_ll[, 3], mat2_reset_ll[, 3], 
+                 c(
+                   round(summary(UC_842_aov_reset_ll)[[1]][4][[1]][1], 2),
+                   round(summary(UC_822_aov_reset_ll)[[1]][4][[1]][1], 2),
+                   round(summary(C_842_aov_reset_ll)[[1]][4][[1]][1], 2),
+                   round(summary(C_822_aov_reset_ll)[[1]][4][[1]][1], 2)), 
+                 c(
+                   ifelse(round(summary(UC_842_aov_reset_ll)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_842_aov_reset_ll)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(UC_822_aov_reset_ll)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_822_aov_reset_ll)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(C_842_aov_reset_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_842_aov_reset_ll)[[1]][5][[1]][1], 3)), 
+                   ifelse(round(summary(C_822_aov_reset_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_822_aov_reset_ll)[[1]][5][[1]][1], 3))),
+                  c(
+                    summary(UC_842_aov_reset_ll)[[1]][1][[1]][2],
+                   summary(UC_822_aov_reset_ll)[[1]][1][[1]][2],
+                   summary(C_842_aov_reset_ll)[[1]][1][[1]][2],
+                   summary(C_822_aov_reset_ll)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+rownames(mat3_reset_ll) <- c("UC 842", "UC 822", "C 842", "C 822")
+colnames(mat3_reset_ll) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_reset_ll)
+
+```
+
+```{r Boxplot special training regimes reset_ll, echo=FALSE}
+
+# Display some boxplots
+
+cycles_UC_842_reset_ll$constrained = F
+cycles_UC_842_reset_ll$h_layers = as.factor(4)
+cycles_UC_822_reset_ll$constrained = F
+cycles_UC_822_reset_ll$h_layers = as.factor(2)
+cycles_C_842_reset_ll$constrained = T
+cycles_C_842_reset_ll$h_layers = as.factor(4)
+cycles_C_822_reset_ll$constrained = T
+cycles_C_822_reset_ll$h_layers = as.factor(2)
+
+data_all_reset_ll <- rbind(
+  cycles_UC_842_reset_ll, cycles_UC_822_reset_ll,
+                           cycles_C_842_reset_ll, cycles_C_822_reset_ll)
+data_all_reset_ll <- data_all_reset_ll %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("pre", "rev", "nrev")) * h_layers * constrained, data=data_all_reset_ll, frame = FALSE, 
+        col = c("#00AFBB", "#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", cex = 1.4, cex.lab = 1.8, cex.axis = 1.4, lwd = 1.5)
+axis(1, at = c(2, 5, 8, 11),
+     labels = c("UC 842", "UC 822", "C 842", "C 822"), cex.axis = 1.4)
+abline(v = c(3.5, 6.5, 9.5), lty = 2, lwd = 1.5)
+legend("topleft", legend = c("pre", "rev", "nrev"), 
+       fill = c("#00AFBB", "#E7B800", "#ff4800"), bty="n", cex = 1.4)
+
+
+```
+
+### Resetting last layer
+
+```{r statistic_results special training regimes reset_ll 2, include=FALSE}
+# statistics for the case where the last layer has been resetted before EDS
+
+cycles_UC_842_no_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$UC_842_sim2_res_first$pre$iterations,
+                 "rev" = data_Rajmakers_rep_reset_ll$UC_842_sim2_res_first$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$UC_842_sim2_res_first$nrev$iterations)
+cycles_UC_822_no_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$UC_822_sim2_res_first$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_reset_ll$UC_822_sim2_res_first$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$UC_822_sim2_res_first$nrev$iterations)
+cycles_C_842_no_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$C_842_sim2_res_first$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_reset_ll$C_842_sim2_res_first$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$C_842_sim2_res_first$nrev$iterations)
+cycles_C_822_no_reset_ll <- data.frame("pre" = data_Rajmakers_rep_reset_ll$C_822_sim2_res_first$pre$iterations, 
+                 "rev" = data_Rajmakers_rep_reset_ll$C_822_sim2_res_first$rev$iterations, 
+                 "nrev" = data_Rajmakers_rep_reset_ll$C_822_sim2_res_first$nrev$iterations)
+
+
+cycles_UC_842_no_reset_ll$type <- "UC_842"
+cycles_UC_822_no_reset_ll$type <- "UC_822"
+cycles_C_842_no_reset_ll$type <- "C_842"
+cycles_C_822_no_reset_ll$type <- "C_822"
+
+new1_no_reset_ll <- cycles_UC_842_no_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new2_no_reset_ll <- cycles_UC_822_no_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new3_no_reset_ll <- cycles_C_842_no_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+new4_no_reset_ll <- cycles_C_822_no_reset_ll[, c(2:4)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+final_no_reset_ll <- rbind(new1_no_reset_ll, new2_no_reset_ll, new3_no_reset_ll, new4_reset_ll)
+
+UC_842_aov_no_reset_ll <- aov(value ~ shift, data = final_no_reset_ll[, c(1, 2, 3)][final_no_reset_ll$type == "UC_842", ])
+UC_822_aov_no_reset_ll <- aov(value ~ shift, data = final_no_reset_ll[, c(1, 2, 3)][final_no_reset_ll$type == "UC_822", ])
+C_842_aov_no_reset_ll <- aov(value ~ shift, data = final_no_reset_ll[, c(1, 2, 3)][final_no_reset_ll$type == "C_842", ])
+C_822_aov_no_reset_ll <- aov(value ~ shift, data = final_no_reset_ll[, c(1, 2, 3)][final_no_reset_ll$type == "C_822", ])
+
+```
+
+```{r Apa_table special training regimes no_reset_ll, echo=FALSE}
+
+# table for teh case where the last layer has been reset 
+
+mat1_no_reset_ll <- matrix(round(c(
+              unname(sapply(cycles_UC_842_no_reset_ll[, 1:3], mean)),
+              unname(sapply(cycles_UC_822_no_reset_ll[, 1:3], mean)),
+              unname(sapply(cycles_C_842_no_reset_ll[, 1:3], mean)), 
+              unname(sapply(cycles_C_822_no_reset_ll[, 1:3], mean))), 2), ncol = 3, byrow = T)
+mat2_no_reset_ll <- matrix(round(c(
+              unname(sapply(cycles_UC_842_no_reset_ll[, 1:3], sd)),
+              unname(sapply(cycles_UC_822_no_reset_ll[, 1:3], sd)),
+              unname(sapply(cycles_C_842_no_reset_ll[, 1:3], sd)), 
+              unname(sapply(cycles_C_822_no_reset_ll[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_no_reset_ll <- matrix(c(mat1_no_reset_ll[, 1], mat2_no_reset_ll[, 1], mat1_no_reset_ll[, 2], mat2_no_reset_ll[, 2], mat1_no_reset_ll[, 3], mat2_no_reset_ll[, 3], 
+                 c(
+                   round(summary(UC_842_aov_no_reset_ll)[[1]][4][[1]][1], 2),
+                   round(summary(UC_822_aov_no_reset_ll)[[1]][4][[1]][1], 2),
+                   round(summary(C_842_aov_no_reset_ll)[[1]][4][[1]][1], 2),
+                   round(summary(C_822_aov_no_reset_ll)[[1]][4][[1]][1], 2)), 
+                 c(
+                   ifelse(round(summary(UC_842_aov_no_reset_ll)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_842_aov_no_reset_ll)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(UC_822_aov_no_reset_ll)[[1]][5][[1]][1], 3) == 0,
+                          ">0.001", round(summary(UC_822_aov_no_reset_ll)[[1]][5][[1]][1], 3)),
+                   ifelse(round(summary(C_842_aov_no_reset_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_842_aov_no_reset_ll)[[1]][5][[1]][1], 3)), 
+                   ifelse(round(summary(C_822_aov_no_reset_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(C_822_aov_no_reset_ll)[[1]][5][[1]][1], 3))),
+                  c(
+                    summary(UC_842_aov_no_reset_ll)[[1]][1][[1]][2],
+                   summary(UC_822_aov_no_reset_ll)[[1]][1][[1]][2],
+                   summary(C_842_aov_no_reset_ll)[[1]][1][[1]][2],
+                   summary(C_822_aov_no_reset_ll)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+rownames(mat3_no_reset_ll) <- c("UC 842", "UC 822", "C842", "C822")
+colnames(mat3_no_reset_ll) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_no_reset_ll)
+
+```
+
+```{r Boxplot special training regimes no_reset_ll, echo=FALSE}
+
+# Boxplot for the case where the last layer has been reset
+
+cycles_UC_842_no_reset_ll$constrained = F
+cycles_UC_842_no_reset_ll$h_layers = as.factor(4)
+cycles_UC_822_no_reset_ll$constrained = F
+cycles_UC_822_no_reset_ll$h_layers = as.factor(2)
+cycles_C_842_no_reset_ll$constrained = T
+cycles_C_842_no_reset_ll$h_layers = as.factor(4)
+cycles_C_822_no_reset_ll$constrained = T
+cycles_C_822_no_reset_ll$h_layers = as.factor(2)
+
+data_all_no_reset_ll <- rbind(
+  cycles_UC_842_no_reset_ll, cycles_UC_822_no_reset_ll,
+  cycles_C_842_no_reset_ll, cycles_C_822_no_reset_ll)
+
+data_all_no_reset_ll <- data_all_no_reset_ll %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("pre", "rev", "nrev")) * h_layers * constrained, data=data_all_no_reset_ll, frame = FALSE, 
+        col = c("#00AFBB", "#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", cex = 1.4, cex.lab = 1.8, cex.axis = 1.4, lwd = 1.5)
+axis(1, at = c(2, 5, 8, 11),
+     labels = c("UC 842", "UC 822", "C 842", "C 822"), cex.axis = 1.4)
+abline(v = c(3.5, 6.5, 9.5), lty = 2, lwd = 1.5)
+legend("topleft", legend = c("pre", "rev", "nrev"), 
+       fill = c("#00AFBB", "#E7B800", "#ff4800"), bty="n", cex = 1.4)
+
+
+```
+
+```{r Plot C neurons simple, echo=FALSE}
+# Plot some overview of the behavior of the networks for the different parameters
+
+par(mfrow = c(3, 2), mai = c(0.4, 0.4, 0.2, 0.2))
+plot_net(C_842_pre$weights, no_bias_in_input = T)
+get_active_neurons_means(weights = C_842_pre$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 1, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left",
+                             "black right"), legend = F, 
+                         main = "Node activations 1st layer C 842", 
+                         plot_lines = F)
+plot_net(C_842_nrev_all$weights, no_bias_in_input = T)
+get_active_neurons_means(weights = C_842_nrev_all$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 1, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left",
+                             "black right"), legend = F, 
+                         main = "All layers retrained",
+                         plot_lines = F)
+plot_net(C_842_nrev_first$weights, no_bias_in_input = T)
+get_active_neurons_means(weights = C_842_nrev_first$weights, data = data_X, 
+                         true1 = data_Y1, true2 = data_Y3, layer = 1, 
+                         activation_function = sigmoid, labs = 
+                           c("circle left",
+                             "circle right",
+                             "black left",
+                             "black right"), legend = F, 
+                         main = "Last layer reinitialized",
+                         plot_lines = F)
+```
+
+
+Shifts with reversal shift as initiator to train the recognition of second stimulus dimension. Different results depending whether the last layer is re-initialized or not before shift - Note: Only in the first two steps, all layers are trained, in the steps 3.1 and 3.2 only the last layer is retrained. 
+The ultimate shifts (3.1 and 3.2) are done on and with respect to the pre-trained model from step 2. 
+
+```{r loss1, echo=FALSE}
+# Plots some metrics 
+
+par(mfrow = c(2, 2), mai = c(0.4, 0.4, 0.2, 0.2))
+plot(C_842_pre$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "1: C 842 - Pre")
+plot(C_842_nrev_all$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "2: C 842 - Nrev all layers retrained")
+plot(C_842_re_rev_all$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "3.1: C 842 - rev")
+plot(C_842_re_nrev_all$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "3.2: C 842 - nrev")
+par(mfrow = c(1, 1), mar = c(3, 3, 3, 3))
+plot_freqs(data_Rajmakers_rep_reset_ll$C_842_sim2_res_all, breaks = 5)
+```
+
+
+In comparison: I if the last layer is reinitialized: 
+
+```{r loss2, echo=FALSE}
+# Plots more metrics
+
+par(mfrow = c(2, 2), mai = c(0.4, 0.4, 0.2, 0.2))
+plot(C_842_pre$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "1: C 842 - Pre")
+plot(C_842_nrev_first$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "2: C 842 - Nrev last layer reinitialised")
+plot(C_842_re_rev_first$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "3.1: C 842 - rev")
+plot(C_842_re_nrev_first$loss, pch = 21, frame = F, cex = 0.6, ylab = "Loss", 
+     xlab = "iteration", main = "3.2: C 842 - nrev")
+par(mfrow = c(1, 1), mar = c(1, 1, 1, 1))
+plot_freqs(data_Rajmakers_rep_reset_ll$C_842_sim2_res_first, breaks = 5)
+
+```
+
+
+This is true for the constrained and the unconstrained version. In the simple stimulus, the dimensions are already separated. 
+
+## Complex stimuli
+
+```{r Presentation complex stimuli, echo=FALSE}
+# Show the complex stimuli 
+par(mfrow = c(2, 2), mar = c(1, 1, 1, 1))
+
+for (i in c(4:7)){
+  image(matrix(shift_shapes$X[i, ], ncol = 28, byrow = T), col = grey(seq(0, 1, length = 256)))
+}
+
+```
+```{r small_big_inverse, include=FALSE}
+small_big_inverse <- function(x){
+  return(sqrt(((abs(((x*10)^2) - max(((x*10)^2)))))) / 10 * sign(x))
+}
+
+```
+
+```{r, include=FALSE}
+# Train some networks for later plotting and as example cases
+
+
+set.seed(123)
+pdp_8_4_pre_1 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_circle[1:1300], 
+                      n_hidden = c(8), plot_loss = T, batch_size = 100, n_iter = 2000,
+                      learning_rates = c(0.1), momentum = 0.5, lambda = 0, 
+                      constrained = c(F), threshold = 0.55, accuracy = 0.90, 
+                      use_accuracy = T, min_correct = 10)
+
+plot(pdp_8_4_pre_1$accuracy)
+
+pdp_8_4_pre_2 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], 
+                      n_hidden = c(8), plot_loss = F, batch_size = 100, n_iter = 2000,
+                      learning_rates = c(0.1), momentum = 0.5, lambda = 0, 
+                      use_accuracy = T, min_correct = 10,
+                      constrained = c(F), threshold = 0.55, accuracy = 0.9, 
+                      prev_wts = list(pdp_8_4_pre_1$weights[[1]]))
+
+pdp_8_4_pre_3 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], 
+                      n_hidden = c(8, 4), plot_loss = T, batch_size = 100, 
+                      n_iter = 2000,
+                      learning_rates = c(0, 0.1, 0.1), momentum = 0.5, lambda = 0, 
+                      use_accuracy = T, min_correct = 10,
+                      constrained = c(F, F), threshold = 0.55, accuracy = 0.9, 
+                      prev_wts = list(pdp_8_4_pre_2$weights[[1]]))
+
+pdp_8_4_pre_4 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_small[1:1300], 
+                      n_hidden = c(8, 4), plot_loss = F, batch_size = 100, 
+                      n_iter = 2000,
+                      learning_rates = c(0, 0.1, 0.1), momentum = 0.55, lambda = 0, 
+                      use_accuracy = T, min_correct = 10,
+                      constrained = c(F, F), threshold = 0.5, accuracy = 0.9, 
+                      prev_wts = list(pdp_8_4_pre_3$weights[[1]], 
+                                      pdp_8_4_pre_3$weights[[2]]))
+
+pdp_8_4_rev <- pdp(shift_shapes$X[1:1300, ],shift_shapes$Y_big[1:1300], 
+                    n_hidden = c(8, 4), plot_loss = T, batch_size = 80, 
+                    n_iter = 2000, learning_rates = c(0, 0, 0.1), momentum = 0.5, 
+                    lambda = 0, constrained = c(F, F), threshold = 0.55, 
+                    accuracy = 0.9,use_accuracy = T, min_correct = 10, 
+                    prev_wts = pdp_8_4_pre_4$weights)
+                      
+                      
+pdp_8_4_nrev <- pdp(shift_shapes$X[1:1300, ],shift_shapes$Y_circle[1:1300], 
+                      n_hidden = c(8, 4), plot_loss = T, batch_size = 80, 
+                     n_iter = 2000, learning_rates = c(0, 0, 0.1), 
+                     momentum = 0.5, lambda = 0, constrained = c(F, F), threshold = 0.55,
+                     accuracy = 0.9, use_accuracy = T, min_correct = 10, 
+                     prev_wts = pdp_8_4_pre_4$weights)
+
+```
+
+
+1. Train one-layer network on one stimulus dimension (e.g. Circle is correct)
+
+```{r, echo=FALSE}
+# Explain the biased CPL for the complex network though plots step 1
+
+plot_net(pdp_8_4_pre_1$weights, no_bias_in_input = T)
+get_active_neurons_means(pdp_8_4_pre_1$weights, data = shift_shapes$X, layer = 1,
+                         true1 = shift_shapes$Y_circle, true2 = shift_shapes$Y_big, 
+                         labs = c("circle left", "circle right", 
+                                  "big left", "big right"), 
+                         activation_function = sigmoid, pos_leg = "topright", 
+                         plot_lines = F)
+
+```
+
+2. Retrain same layer on second stimulus dimension (e.g. Big is correct)
+
+```{r, echo=FALSE}
+# Explain the biased CPL for the complex network though plots step 2
+plot_net(pdp_8_4_pre_2$weights, no_bias_in_input = T)
+get_active_neurons_means(pdp_8_4_pre_2$weights, data = shift_shapes$X, layer = 1,
+                         true1 = shift_shapes$Y_circle, true2 = shift_shapes$Y_big, 
+                         labs = c("circle left", "circle right", 
+                                  "big left", "big right"), 
+                         activation_function = sigmoid, pos_leg = "topright", 
+                         plot_lines = F)
+```
+
+3. Train new tiny layer on first stimulus dimension on top of first layer: 
+
+```{r, echo=FALSE}
+# Explain the biased CPL for the complex network though plots step 3
+plot_net(pdp_8_4_pre_3$weights, no_bias_in_input = T)
+get_active_neurons_means(pdp_8_4_pre_3$weights, data = shift_shapes$X, layer = 2,
+                         true1 = shift_shapes$Y_circle, true2 = shift_shapes$Y_big, 
+                         labs = c("circle left", "circle right", 
+                                  "big left", "big right"), 
+                         activation_function = sigmoid, pos_leg = "topright", 
+                         plot_lines = F)
+
+```
+
+4. Retrain new layer on second stimulus dimension:
+
+```{r, echo=FALSE}
+# Explain the biased CPL for the complex network though plots step 4
+plot_net(pdp_8_4_pre_4$weights, no_bias_in_input = T)
+get_active_neurons_means(pdp_8_4_pre_4$weights, data = shift_shapes$X, layer = 2,
+                         true1 = shift_shapes$Y_circle, true2 = shift_shapes$Y_big, 
+                         labs = c("circle left", "circle right", 
+                                  "big left", "big right"), 
+                         activation_function = sigmoid, pos_leg = "topright", 
+                         plot_lines = F)
+
+```
+
+The dimensions are now well represented in the deeper layer of the network in the sense that different neurons tend to respond to different dimensions. 
+
+Reversal as well as non-reversal shift are now very fast by only retraining the last layer. 
+
+```{r Simulations complex params, include=FALSE}
+# Parameters for the simulation of complex networks
+
+sims = 90
+lr1 <- c(0.02, 0.02, 0.02)
+lr2 <- c(0.02, 0.02, 0.02)
+lr3 <- c(0.02, 0.02, 0.02)
+itermax <- 2000
+bs <- 100
+mmtm <- 0.5
+min_correct <- 10
+accuracy <- 0.9
+threshold <- 0.55
+```
+
+```{r Load data complex, include=FALSE}
+# Load data of complex networks. If the next chunk is executed, the simulated data will be added to the existing data. 
+data_pdp_8_4_cd <- readRDS("final_data/data_pdp_8_4_cd.RData")
+```
+
+```{r, Simulation complex 1, eval=FALSE, include=FALSE}
+# Simulates conceptual replication
+# will not be executed when knitting
+
+data_pdp_8_4_cd <- simulate_pdp(X = shift_shapes$X, Y1 = shift_shapes$Y_circle,  
+             Y2 = shift_shapes$Y_triangle,  Y3 = shift_shapes$Y_big, nsim = sims, 
+             n_hidden = c(8, 4), constrained = c(T, F), n_iter = itermax, 
+             batch_size = bs, threshold = threshold,
+             min_correct = min_correct, learning_rates1 = lr1, learning_rates2 = lr2, 
+             learning_rates3 = lr3, accuracy = accuracy, use_acc = T, momentum = mmtm, 
+             plot_loss = F, add = data_pdp_8_4_cd)
+
+```
+
+```{r Save Data complex, include=FALSE, eval=FALSE}
+# Saves the data - be careful what you save
+# will not be executed when knitting
+
+saveRDS(data_pdp_8_4_cd, file="final_data/data_pdp_8_4_cd.RData")
+```
+
+Iteration frequencies when all layers are retrained. 
+
+```{r Boxplot complex stimuli all layers, echo=FALSE}
+
+# Show some boxplots of conceptual replication
+
+length(data_pdp_8_4_cd$pre$iterations)
+
+cycles_pdp_8_4_cd <- data.frame("pre" = data_pdp_8_4_cd$pre$iterations,
+                 "rev" = data_pdp_8_4_cd$rev$iterations, 
+                 "nrev" = data_pdp_8_4_cd$nrev$iterations)
+
+new_pdp_8_4_cd <- cycles_pdp_8_4_cd[, c(1:3)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+new_pdp_8_4_cd_aov <- aov(value ~ shift, data = new_pdp_8_4_cd)
+summary(new_pdp_8_4_cd_aov)
+
+data_all_pdp_8_4_cd <- cycles_pdp_8_4_cd %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("pre", "rev", "nrev")), data=data_all_pdp_8_4_cd, frame = FALSE, 
+        col = c("#00AFBB", "#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n")
+axis(1, at = c(1, 2, 3),
+     labels = c("Pre", "Rev", "Nrev"))
+
+```
+
+```{r Apa_table complex 1, echo=FALSE}
+# Show table ofconceptual replication
+
+mat1_pdp_8_4_cd <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd[, 1:3], mean))), 2), ncol = 3, byrow = T)
+                                   
+mat2_pdp_8_4_cd <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_pdp_8_4_cd <- matrix(c(mat1_pdp_8_4_cd[, 1], mat2_pdp_8_4_cd[, 1], mat1_pdp_8_4_cd[, 2], mat2_pdp_8_4_cd[, 2], mat1_pdp_8_4_cd[, 3], mat2_pdp_8_4_cd[, 3], 
+                 c(round(summary(new_pdp_8_4_cd_aov)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_pdp_8_4_cd_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_pdp_8_4_cd_aov)[[1]][5][[1]][1], 3))),
+                  c(summary(new_pdp_8_4_cd_aov)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+colnames(mat3_pdp_8_4_cd) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_pdp_8_4_cd)
+
+```
+
+
+```{r Simulations complex params ll, include=FALSE}
+# Parameters for next simulation (Last layer training )
+
+sims = 100
+lr1 <- c(0.02, 0.02, 0.02)
+lr2 <- c(0, 0, 0.02)
+lr3 <- c(0, 0, 0.02)
+itermax <- 2000
+bs <- 80
+mmtm <- 0.5
+min_correct <- 10
+accuracy <- 0.9
+threshold <- 0.55
+```
+
+```{r Load data complex ll, include=FALSE}
+# Loads data
+data_pdp_8_4_cd_ll <- readRDS("final_data/data_pdp_8_4_cd_ll.RData")
+```
+
+```{r, Simulation complex 2, eval=FALSE, include=FALSE}
+# Simulates conceptual replication with last layer training 
+# will not be executed when knitting
+
+data_pdp_8_4_cd_ll <- simulate_pdp(X = shift_shapes$X, Y1 = shift_shapes$Y_circle,  
+             Y2 = shift_shapes$Y_triangle,  Y3 = shift_shapes$Y_big, nsim = sims, 
+             n_hidden = c(8, 4), constrained = c(T, F), n_iter = itermax, 
+             batch_size = bs, threshold = threshold,
+             min_correct = min_correct, learning_rates1 = lr1, learning_rates2 = lr2, 
+             learning_rates3 = lr3, accuracy = accuracy, use_acc = T, momentum = mmtm, 
+             plot_loss = F, add = data_pdp_8_4_cd_ll)
+```
+
+
+```{r Save Data complex ll, include=FALSE, eval=FALSE}
+# Saves data, will not be executed
+
+saveRDS(data_pdp_8_4_cd_ll, file="final_data/data_pdp_8_4_cd_ll.RData")
+```
+
+Iteration frequencies when only last layer is retrained
+
+```{r Boxplot complex stimuli last layer, echo=FALSE}
+# Show some boxplot for the last layer condition
+
+length(data_pdp_8_4_cd_ll$pre$iterations)
+
+cycles_pdp_8_4_cd_ll <- data.frame("pre" = data_pdp_8_4_cd_ll$pre$iterations,
+                 "rev" = data_pdp_8_4_cd_ll$rev$iterations, 
+                 "nrev" = data_pdp_8_4_cd_ll$nrev$iterations)
+
+new_pdp_8_4_cd_ll <- cycles_pdp_8_4_cd_ll[, c(1:3)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+new_pdp_8_4_cd_aov_ll <- aov(value ~ shift, data = new_pdp_8_4_cd_ll)
+summary(new_pdp_8_4_cd_aov_ll)
+
+data_all_pdp_8_4_cd_ll <- cycles_pdp_8_4_cd_ll %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("pre", "rev", "nrev")), data=data_all_pdp_8_4_cd_ll, frame = FALSE, 
+        col = c("#00AFBB", "#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n")
+axis(1, at = c(1, 2, 3),
+     labels = c("Pre", "Rev", "Nrev"))
+
+```
+
+```{r Apa_table complex 2, echo=FALSE}
+# Show table for the last layer condition
+
+mat1_pdp_8_4_cd_ll <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd_ll[, 1:3], mean))), 2), ncol = 3, byrow = T)
+                                   
+mat2_pdp_8_4_cd_ll <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd_ll[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_pdp_8_4_cd_ll <- matrix(c(mat1_pdp_8_4_cd_ll[, 1], mat2_pdp_8_4_cd_ll[, 1], mat1_pdp_8_4_cd_ll[, 2], mat2_pdp_8_4_cd_ll[, 2], mat1_pdp_8_4_cd_ll[, 3], mat2_pdp_8_4_cd_ll[, 3], 
+                 c(round(summary(new_pdp_8_4_cd_aov_ll)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_pdp_8_4_cd_aov_ll)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_pdp_8_4_cd_aov_ll)[[1]][5][[1]][1], 3))),
+                  c(summary(new_pdp_8_4_cd_aov_ll)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+colnames(mat3_pdp_8_4_cd_ll) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_pdp_8_4_cd_ll)
+
+```
+
+```{r create_data_storage, include=FALSE, eval=FALSE}
+data_pdp_8_4_cd_prep <- list("pre" = list("iterations" = c()), 
+                         "rev" = list("iterations" = c()), 
+                         "nrev" = list("iterations" = c()))
+```
+
+```{r Load data complex prep, include=FALSE}
+data_pdp_8_4_cd_prep <- readRDS("final_data/data_pdp_8_4_cd_prep.RData")
+```
+
+```{r simulate prep, eval=FALSE, include=FALSE}
+sims <- 10
+threshold <- 0.55
+min_correct <- 10
+accuracy <- 0.9
+
+for (i in 1:sims){
+  print(paste("Doing simulation nr", i, "of", sims))
+  pdp_8_4_pre_1 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_circle[1:1300], 
+                      n_hidden = c(8), plot_loss = F, batch_size = 100, n_iter = 2000,
+                      learning_rates = c(0.1), momentum = 0.5, lambda = 0, 
+                      constrained = c(F), threshold = threshold, accuracy = accuracy, 
+                      use_accuracy = T, min_correct = min_correct)
+
+  pdp_8_4_pre_2 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], 
+                        n_hidden = c(8), plot_loss = F, batch_size = 100, 
+                        n_iter = 2000,
+                        learning_rates = c(0.1), momentum = 0.5, lambda = 0, 
+                        use_accuracy = T, min_correct = min_correct,
+                        constrained = c(F), threshold = threshold, accuracy = accuracy, 
+                        prev_wts = list(pdp_8_4_pre_1$weights[[1]]))
+  
+  pdp_8_4_pre_3 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], 
+                        n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                        n_iter = 2000,
+                        learning_rates = c(0, 0.1, 0.1), momentum = 0.5, lambda = 0, 
+                        use_accuracy = T, min_correct = min_correct,
+                        constrained = c(F, F), threshold = threshold, accuracy = accuracy, 
+                        prev_wts = list(pdp_8_4_pre_2$weights[[1]]))
+  
+  pdp_8_4_pre_4 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_small[1:1300], 
+                        n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                        n_iter = 2000,
+                        learning_rates = c(0, 0.1, 0.1), momentum = 0.5, lambda = 0, 
+                        use_accuracy = T, min_correct = min_correct,
+                        constrained = c(F, F), threshold = threshold, accuracy = accuracy, 
+                        prev_wts = list(pdp_8_4_pre_3$weights[[1]], 
+                                        pdp_8_4_pre_3$weights[[2]]))
+  
+  pdp_8_4_rev <- pdp(shift_shapes$X[1:1300, ],shift_shapes$Y_big[1:1300], 
+                      n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                      n_iter = 2000, learning_rates = c(0, 0, 0.1), momentum = 0.5, 
+                      lambda = 0, constrained = c(F, F), threshold = threshold, 
+                      accuracy = accuracy,use_accuracy = T, min_correct = min_correct, 
+                      prev_wts = pdp_8_4_pre_4$weights)
+                        
+                        
+  pdp_8_4_nrev <- pdp(shift_shapes$X[1:1300, ],shift_shapes$Y_circle[1:1300], 
+                        n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                       n_iter = 2000, learning_rates = c(0, 0, 0.1), 
+                       momentum = 0.5, lambda = 0, constrained = c(F, F), 
+                       threshold = threshold,
+                       accuracy = accuracy, use_accuracy = T, min_correct = min_correct, 
+                       prev_wts = pdp_8_4_pre_4$weights)
+   
+  data_pdp_8_4_cd_prep$pre$iterations <- c(data_pdp_8_4_cd_prep$pre$iterations, 
+                                            pdp_8_4_pre_4$iterations)
+  data_pdp_8_4_cd_prep$rev$iterations <- c(data_pdp_8_4_cd_prep$rev$iterations, 
+                                            pdp_8_4_rev$iterations)
+  data_pdp_8_4_cd_prep$nrev$iterations <- c(data_pdp_8_4_cd_prep$nrev$iterations, 
+                                             pdp_8_4_nrev$iterations)
+}
+
+```
+
+```{r Save Data complex prep, include=FALSE, eval=FALSE}
+
+saveRDS(data_pdp_8_4_cd_prep, file="final_data/data_pdp_8_4_cd_prep.RData")
+```
+
+Frequencies of learning iterations when pretrained over several cycles as shown above. Reversal shift: small-big, nonreversal shift: small-triangle
+
+
+
+```{r Boxplot complex stimuli last prep, echo=FALSE}
+
+
+cycles_pdp_8_4_cd_prep <- data.frame("pre" = data_pdp_8_4_cd_prep$pre$iterations,
+                 "rev" = data_pdp_8_4_cd_prep$rev$iterations, 
+                 "nrev" = data_pdp_8_4_cd_prep$nrev$iterations)
+
+new_pdp_8_4_cd_prep <- cycles_pdp_8_4_cd_prep[, c(1:3)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+new_pdp_8_4_cd_aov_prep <- aov(value ~ shift, data = new_pdp_8_4_cd_prep)
+summary(new_pdp_8_4_cd_aov_prep)
+
+data_all_pdp_8_4_cd_prep <- cycles_pdp_8_4_cd_prep %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("rev", "nrev")), data=new_pdp_8_4_cd_prep, frame = FALSE, 
+        col = c("#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n")
+axis(1, at = c(1, 2),
+     labels = c("Rev", "Nrev"))
+
+```
+
+```{r Apa_table complex 3 training regime, echo=FALSE}
+
+mat1_pdp_8_4_cd_prep <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd_prep[, 1:3], mean))), 2), ncol = 3, byrow = T)
+                                   
+mat2_pdp_8_4_cd_prep <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd_prep[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_pdp_8_4_cd_prep <- matrix(c(mat1_pdp_8_4_cd_prep[, 1], mat2_pdp_8_4_cd_prep[, 1], mat1_pdp_8_4_cd_prep[, 2], mat2_pdp_8_4_cd_prep[, 2], mat1_pdp_8_4_cd_prep[, 3], mat2_pdp_8_4_cd_prep[, 3], 
+                 c(round(summary(new_pdp_8_4_cd_aov_prep)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_pdp_8_4_cd_aov_prep)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_pdp_8_4_cd_aov_prep)[[1]][5][[1]][1], 3))),
+                  c(summary(new_pdp_8_4_cd_aov_prep)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+colnames(mat3_pdp_8_4_cd_prep) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_pdp_8_4_cd_prep)
+
+```
+
+### 
+
+
+
+```{r create_data_storage inverted stimuli, include=FALSE, eval=FALSE}
+data_pdp_8_4_cd_prep_IS <- list("pre" = list("iterations" = c()), 
+                         "rev" = list("iterations" = c()), 
+                         "nrev" = list("iterations" = c()))
+```
+
+```{r Load data complex prep inverted stimuli, include=FALSE}
+data_pdp_8_4_cd_prep_IS <- readRDS("final_data/data_pdp_8_4_cd_prep_IS.RData")
+```
+
+```{r simulate prep inverted stimuli, eval=FALSE, include=FALSE}
+sims <- 90   
+threshold <- 0.55
+min_correct <- 10
+accuracy <- 0.9
+
+for (i in 1:sims){
+  print(paste("Doing simulation nr", i, "of", sims))
+  pdp_8_4_pre_1 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], 
+                      n_hidden = c(8), plot_loss = F, batch_size = 100, n_iter = 2000,
+                      learning_rates = c(0.1), momentum = 0.5, lambda = 0, 
+                      constrained = c(F), threshold = threshold, accuracy = accuracy, 
+                      use_accuracy = T, min_correct = min_correct)
+
+  pdp_8_4_pre_2 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_circle[1:1300], 
+                        n_hidden = c(8), plot_loss = F, batch_size = 100, 
+                        n_iter = 2000,
+                        learning_rates = c(0.1), momentum = 0.5, lambda = 0, 
+                        use_accuracy = T, min_correct = min_correct,
+                        constrained = c(F), threshold = threshold, accuracy = accuracy, 
+                        prev_wts = list(pdp_8_4_pre_1$weights[[1]]))
+  
+  pdp_8_4_pre_3 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_small[1:1300], 
+                        n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                        n_iter = 2000,
+                        learning_rates = c(0, 0.1, 0.1), momentum = 0.5, lambda = 0, 
+                        use_accuracy = T, min_correct = min_correct,
+                        constrained = c(F, F), threshold = threshold, accuracy = accuracy, 
+                        prev_wts = list(pdp_8_4_pre_2$weights[[1]]))
+  
+  pdp_8_4_pre_4 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], 
+                        n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                        n_iter = 2000,
+                        learning_rates = c(0, 0.1, 0.1), momentum = 0.5, lambda = 0, 
+                        use_accuracy = T, min_correct = min_correct,
+                        constrained = c(F, F), threshold = threshold, accuracy = accuracy, 
+                        prev_wts = list(pdp_8_4_pre_3$weights[[1]], 
+                                        pdp_8_4_pre_3$weights[[2]]))
+  
+  pdp_8_4_rev <- pdp(shift_shapes$X[1:1300, ],shift_shapes$Y_circle[1:1300], 
+                      n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                      n_iter = 2000, learning_rates = c(0, 0, 0.1), momentum = 0.5, 
+                      lambda = 0, constrained = c(F, F), threshold = threshold, 
+                      accuracy = accuracy,use_accuracy = T, min_correct = min_correct, 
+                      prev_wts = pdp_8_4_pre_4$weights)
+                        
+                        
+  pdp_8_4_nrev <- pdp(shift_shapes$X[1:1300, ],shift_shapes$Y_small[1:1300], 
+                        n_hidden = c(8, 4), plot_loss = F, batch_size = 80, 
+                       n_iter = 2000, learning_rates = c(0, 0, 0.1), 
+                       momentum = 0.5, lambda = 0, constrained = c(F, F), 
+                       threshold = threshold,
+                       accuracy = accuracy, use_accuracy = T, min_correct = min_correct, 
+                       prev_wts = pdp_8_4_pre_4$weights)
+   
+  data_pdp_8_4_cd_prep_IS$pre$iterations <- c(data_pdp_8_4_cd_prep_IS$pre$iterations, 
+                                            pdp_8_4_pre_4$iterations)
+  data_pdp_8_4_cd_prep_IS$rev$iterations <- c(data_pdp_8_4_cd_prep_IS$rev$iterations, 
+                                            pdp_8_4_rev$iterations)
+  data_pdp_8_4_cd_prep_IS$nrev$iterations <- c(data_pdp_8_4_cd_prep_IS$nrev$iterations, 
+                                             pdp_8_4_nrev$iterations)
+}
+
+```
+
+```{r Save Data complex prep inverted stimuli, include=FALSE, eval=FALSE}
+
+saveRDS(data_pdp_8_4_cd_prep_IS, file="~/Documents/Arbeit/Uni/Internship RBM/R/final_data/data_pdp_8_4_cd_prep_IS.RData")
+```
+
+
+### When pretrained over several cycles (biased pretraining) and inverted stimuli 
+(Reversal shift: triangle-circle, nonreversal shift: triangle-big)
+
+```{r Boxplot complex stimuli last prep inverted stimuli, echo=FALSE}
+
+
+cycles_pdp_8_4_cd_prep <- data.frame("pre" = data_pdp_8_4_cd_prep_IS$pre$iterations,
+                 "rev" = data_pdp_8_4_cd_prep_IS$rev$iterations, 
+                 "nrev" = data_pdp_8_4_cd_prep_IS$nrev$iterations)
+
+new_pdp_8_4_cd_prep <- cycles_pdp_8_4_cd_prep[, c(1:3)] %>% pivot_longer(c(rev, nrev), names_to = "shift")
+
+new_pdp_8_4_cd_aov_prep <- aov(value ~ shift, data = new_pdp_8_4_cd_prep)
+summary(new_pdp_8_4_cd_aov_prep)
+
+data_all_pdp_8_4_cd_prep <- cycles_pdp_8_4_cd_prep %>% pivot_longer(c(pre, rev, nrev), names_to = "shift")
+boxplot(value ~ factor(shift, levels=c("rev", "nrev")), data=new_pdp_8_4_cd_prep, frame = FALSE, 
+        col = c("#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n")
+axis(1, at = c(1, 2),
+     labels = c("Rev", "Nrev"))
+
+```
+
+```{r Apa_table complex 3 training regime inverted stimuli, echo=FALSE}
+
+mat1_pdp_8_4_cd_prep <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd_prep[, 1:3], mean))), 2), ncol = 3, byrow = T)
+                                   
+mat2_pdp_8_4_cd_prep <- matrix(round(c(unname(sapply(cycles_pdp_8_4_cd_prep[, 1:3], sd))), 2), ncol = 3, byrow = T)
+mat3_pdp_8_4_cd_prep <- matrix(c(mat1_pdp_8_4_cd_prep[, 1], mat2_pdp_8_4_cd_prep[, 1], mat1_pdp_8_4_cd_prep[, 2], mat2_pdp_8_4_cd_prep[, 2], mat1_pdp_8_4_cd_prep[, 3], mat2_pdp_8_4_cd_prep[, 3], 
+                 c(round(summary(new_pdp_8_4_cd_aov_prep)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_pdp_8_4_cd_aov_prep)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_pdp_8_4_cd_aov_prep)[[1]][5][[1]][1], 3))),
+                  c(summary(new_pdp_8_4_cd_aov_prep)[[1]][1][[1]][2])),
+               ncol = 9)
+
+
+colnames(mat3_pdp_8_4_cd_prep) <- c("Mean Pre shift", "Sd", "Mean Reversal shift", "Sd",
+                    "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+knitr::kable(mat3_pdp_8_4_cd_prep)
+
+```
+
+
+```{r digital stimulus encoding, include=FALSE}
+# Create digital encoding 
+
+y_all <- X[3, ]
+
+for (i in 2:length(shift_shapes$Y_circle)){
+  if (shift_shapes$Y_circle[i] == 0){
+    if (shift_shapes$Y_big[i] == 0){
+      y_all <- rbind(y_all, X[1, ])
+    } else {
+      y_all <- rbind(y_all, X[3, ])
+    }
+  } else {
+    if (shift_shapes$Y_big[i] == 0){
+      y_all <- rbind(y_all, X[2, ])
+    } else {
+      y_all <- rbind(y_all, X[4, ])
+    }
+  }
+}
+
+```
+
+### Digital encoding initial stimuli (reversal shift: big-small, nrev shift: big-triangle)
+
+
+
+```{r train_complex all stimuli, echo=FALSE}
+
+b_r_pre <- pdp(shift_shapes$X[1:1300, ], y_all[1:1300, ], n_hidden = c(16), plot_loss = T, 
+         batch_size = 100, n_iter = 2000, learning_rates = c(0.03), momentum = 0.5, min_correct = 10,
+         lambda = 0, constrained = c(F), threshold = 0.55, accuracy = 0.9, binarize = F, 
+         use_accuracy = T)
+
+plot_net(b_r_pre$weights, no_bias_in_input = T)
+
+get_active_neurons_means(b_r_pre$weights, layer = 2, shift_shapes$X, true1 = shift_shapes$Y_circle, 
+                         true2 = shift_shapes$Y_big, labs = c("circle", "triangle", "big", "small"), 
+                         plot_lines = F)
+
+b_r_pre_2 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], n_hidden = c(16, 8), 
+                 plot_loss = T,
+          batch_size = 100, n_iter = 2000, learning_rates = c(0, 0, 0.03), momentum = 0.7,
+          lambda = 0, constrained = c(F), threshold = 0.55, accuracy = 0.9, binarize = T,
+          prev_wts = b_r_pre$weights, use_accuracy = T, min_correct = 10)
+
+plot_net(b_r_pre_2$weights, no_bias_in_input = T)
+
+get_active_neurons_means(b_r_pre_2$weights, layer = 2, shift_shapes$X, true1 = shift_shapes$Y_circle,
+                         true2 = shift_shapes$Y_big, labs = c("circle", "triangle", "big", "small"),
+                         plot_lines = F)
+
+b_r_ed <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_circle[1:1300], n_hidden = c(16, 8), plot_loss = T, 
+         batch_size = 50, n_iter = 2000, learning_rates = c(0.0, 0.0, 0.02), momentum = 0.5, 
+         lambda = 0, constrained = c(F, F), threshold = 0.55, accuracy = 0.9, binarize = T, 
+         prev_wts = b_r_pre_2$weights, use_accuracy = T, min_correct = 10)
+
+b_r_rs <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_small[1:1300], n_hidden = c(16, 8), 
+              plot_loss = T, batch_size = 50, n_iter = 2000, learning_rates = c(0.0, 0.0, 0.02),
+              momentum = 0.5, lambda = 0, constrained = c(F, F), threshold = 0.55, accuracy = 0.9,
+              binarize = T, prev_wts = b_r_pre_2$weights, min_correct = 10, use_accuracy = T)
+
+get_active_neurons_means(b_r_ed$weights, layer = 2, shift_shapes$X, true1 = shift_shapes$Y_circle, 
+                         true2 = shift_shapes$Y_big, labs = c("circle", "triangle", "big", "small"), 
+                         plot_lines = F)
+
+get_active_neurons_means(b_r_rs$weights, layer = 2, shift_shapes$X, true1 = shift_shapes$Y_circle, 
+                         true2 = shift_shapes$Y_big, labs = c("circle", "triangle", "big", "small"), 
+                         plot_lines = F)
+
+plot_net(list(b_r_ed$weights[[2]], b_r_ed$weights[[3]]), no_bias_in_input = T)
+plot_net(list(b_r_rs$weights[[2]], b_r_rs$weights[[3]]), no_bias_in_input = T)
+
+plot_net(b_r_rs$weights, no_bias_in_input = T)
+
+
+```
+
+
+
+```{r create_data_storage_binary_representations, include=FALSE, eval=FALSE}
+data_pdp_b_r_8_8_2 <- list("pre_1" = list("iterations" = c()), 
+                     "pre_2" = list("iterations" = c()),
+                         "rev_all" = list("iterations" = c()), 
+                         "nrev_all" = list("iterations" = c()), 
+                         "rev_ll" = list("iterations" = c()), 
+                         "nrev_ll" = list("iterations" = c())
+                         )
+```
+
+```{r Load data binary_representations, include=FALSE}
+# Load unbiased CPL data
+data_pdp_b_r_8_8_2  <- readRDS("final_data/data_pdp_b_r_8_8_2.RData")
+```
+
+```{r binary representation training, eval=FALSE, include=FALSE}
+# Super messy simulation of unbiased CPL with reverted stimuli
+
+sims <- 100
+itermax <- 4000
+accuracy <- 0.9
+min_correct <- 10
+threshold <- 0.55
+
+for (i in 1:sims){
+  print(paste("Doing simulation nr", i, "of", sims))
+  pdp_br_pre_1 <- pdp(shift_shapes$X[1:1300, ], y_all[1:1300, ], n_hidden = c(16), 
+         batch_size = 100, n_iter = itermax, learning_rates = c(0.03), momentum = 0.5, 
+         lambda = 0, constrained = c(F), threshold = threshold, accuracy = accuracy, binarize = F, 
+         use_accuracy = T, min_correct = min_correct)
+  
+  pdp_br_pre_3 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], n_hidden = c(16, 8), 
+        batch_size = 50, n_iter = itermax, learning_rates = c(0, 0, 0.03), momentum = 0.7,
+        lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T,
+        prev_wts = pdp_br_pre_1$weights, use_accuracy = T, min_correct = min_correct)
+  
+  pdp_br_ed_all <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], n_hidden = c(16, 8), 
+         batch_size = 50, n_iter = itermax, learning_rates = c(0.02, 0.02, 0.02), momentum = 0.5, 
+         lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+         prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+  
+
+  pdp_10_4_rev_all <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_small[1:1300], n_hidden = c(16, 8), 
+          batch_size = 50, n_iter = itermax, learning_rates = c(0.02, 0.02, 0.02), momentum = 0.5, 
+          lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+          prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+                        
+  pdp_br_ed_ll <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], n_hidden = c(16, 8), 
+         batch_size = 50, n_iter = itermax, learning_rates = c(0, 0, 0.02), momentum = 0.5, 
+         lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+         prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+  
+
+  pdp_10_4_rev_ll <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_small[1:1300], n_hidden = c(16, 8),
+          batch_size = 50, n_iter = itermax, learning_rates = c(0, 0, 0.02), momentum = 0.5, 
+          lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+          prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+   
+  data_pdp_b_r_8_8_2$pre_1$iterations <- c(data_pdp_b_r_8_8_2$pre_1$iterations, 
+                                            pdp_br_pre_1$iterations)
+  data_pdp_b_r_8_8_2$pre_2$iterations <- c(data_pdp_b_r_8_8_2$pre_3$iterations, 
+                                            pdp_br_pre_3$iterations)
+  data_pdp_b_r_8_8_2$rev_all$iterations <- c(data_pdp_b_r_8_8_2$rev_all$iterations, 
+                                            pdp_10_4_rev_all$iterations)
+  data_pdp_b_r_8_8_2$nrev_all$iterations <- c(data_pdp_b_r_8_8_2$nrev_all$iterations, 
+                                             pdp_br_ed_all$iterations)
+  data_pdp_b_r_8_8_2$rev_ll$iterations <- c(data_pdp_b_r_8_8_2$rev_ll$iterations, 
+                                            pdp_10_4_rev_ll$iterations)
+  data_pdp_b_r_8_8_2$nrev_ll$iterations <- c(data_pdp_b_r_8_8_2$nrev_ll$iterations, 
+                                             pdp_br_ed_ll$iterations)
+}
+
+
+
+```
+
+```{r Save Data binary_representations, include=FALSE, eval=FALSE}
+
+saveRDS(data_pdp_b_r_8_8_2, file="final_data/data_pdp_b_r_8_8_2.RData")
+```
+
+```{r Boxplot complex stimuli br_all, echo=FALSE}
+
+
+cycles_pdp_b_r_all <- data.frame("rev_all" = data_pdp_b_r_8_8_2$rev_all$iterations, 
+                             "nrev_all" = data_pdp_b_r_8_8_2$nrev_all$iterations)
+
+new_cycles_pdp_b_r_all <- cycles_pdp_b_r_all[, c(1:2)] %>% pivot_longer(c(rev_all, nrev_all), names_to = "shift")
+
+new_cycles_pdp_b_r_all_aov <- aov(value ~ shift, data = new_cycles_pdp_b_r_all)
+summary(new_cycles_pdp_b_r_all_aov)
+
+boxplot(value ~ factor(shift, levels=c("rev_all", "nrev_all")), data=new_cycles_pdp_b_r_all, frame = FALSE, 
+        col = c("#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", ylim = c(0, 4000), cex = 2.5, cex.lab = 2.4, cex.axis = 2, lwd = 3, axes = F)
+axis(1, at = c(1, 2),
+     labels = c("Rev", "Nrev"), cex.axis = 2, lwd = 2)
+axis(2, lwd = 2, cex.axis = 2 )
+# legend("topright", legend = c("rev", "nrev"), 
+#        fill = c("#E7B800", "#ff4800"), bty="n", cex = 2)
+
+```
+
+```{r Boxplot complex stimuli br_ll, echo=FALSE}
+
+cycles_pdp_b_r_ll <- data.frame("rev_ll" = data_pdp_b_r_8_8_2$rev_ll$iterations, 
+                             "nrev_ll" = data_pdp_b_r_8_8_2$nrev_ll$iterations)
+
+new_cycles_pdp_b_r_ll <- cycles_pdp_b_r_ll[, c(1:2)] %>% pivot_longer(c(rev_ll, nrev_ll), names_to = "shift")
+
+new_cycles_pdp_b_r_ll_aov <- aov(value ~ shift, data = new_cycles_pdp_b_r_ll)
+summary(new_cycles_pdp_b_r_ll_aov)
+
+
+boxplot(value ~ factor(shift, levels=c("rev_ll", "nrev_ll")), data=new_cycles_pdp_b_r_ll, frame = FALSE, 
+        col = c("#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", ylim = c(0, 4000), cex = 2.5, cex.lab = 2.4, cex.axis = 2, lwd = 3, axes = F)
+axis(1, at = c(1, 2),
+     labels = c("Rev", "Nrev"), cex.axis = 2, lwd = 2)
+axis(2, lwd = 2, cex.axis = 2 )
+# legend("topright", legend = c("rev", "nrev"), 
+#        fill = c("#E7B800", "#ff4800"), bty="n", cex = 2)
+
+```
+```{r Apa_table pdp_comples_binary_encoding, echo=FALSE}
+
+mat1_pdp_br <- matrix(round(c(unname(sapply(cycles_pdp_b_r_all[, 1:2], mean))), 2), ncol = 2, byrow = T)
+                                   
+mat2_pdp_br <- matrix(round(c(unname(sapply(cycles_pdp_b_r_all[, 1:2], sd))), 2), ncol = 2, byrow = T)
+mat3_pdp_br <- matrix(c(mat1_pdp_br[, 1], mat2_pdp_br[, 1], mat1_pdp_br[, 2], mat2_pdp_br[, 2], 
+                 c(round(summary(new_cycles_pdp_b_r_all_aov)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_cycles_pdp_b_r_all_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_cycles_pdp_b_r_all_aov)[[1]][5][[1]][1], 3))),
+                  c(summary(new_cycles_pdp_b_r_all_aov)[[1]][1][[1]][2])),
+               ncol = 7)
+
+mat1_pdp_br_ll <- matrix(round(c(unname(sapply(cycles_pdp_b_r_ll[, 1:2], mean))), 2), ncol = 2, byrow = T)
+                                   
+mat2_pdp_br_ll <- matrix(round(c(unname(sapply(cycles_pdp_b_r_ll[, 1:2], sd))), 2), ncol = 2, byrow = T)
+mat3_pdp_br_ll <- matrix(c(mat1_pdp_br_ll[, 1], mat2_pdp_br_ll[, 1], mat1_pdp_br_ll[, 2], mat2_pdp_br_ll[, 2],  c(round(summary(new_cycles_pdp_b_r_ll_aov)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_cycles_pdp_b_r_ll_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_cycles_pdp_b_r_ll_aov)[[1]][5][[1]][1], 3))),
+                  c(summary(new_cycles_pdp_b_r_ll_aov)[[1]][1][[1]][2])),
+               ncol = 7)
+
+
+mat4_br <- rbind(mat3_pdp_br, mat3_pdp_br_ll)
+colnames(mat4_br) <- c("Mean Reversal shift", "Sd", "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+rownames(mat4_br) <- c("All layers", "Last layer")
+
+knitr::kable(mat4_br)
+
+```
+
+### Digital encoding reverted stimuli (reversal shift: circle-triangle, nrev shift: circle-big)
+
+```{r create_data_storage_binary_representations Reverted stimuli, include=FALSE, eval=FALSE}
+data_pdp_b_r_8_8_2_RS <- list("pre_1" = list("iterations" = c()), 
+                     "pre_2" = list("iterations" = c()),
+                         "rev_all" = list("iterations" = c()), 
+                         "nrev_all" = list("iterations" = c()), 
+                         "rev_ll" = list("iterations" = c()), 
+                         "nrev_ll" = list("iterations" = c())
+                         )
+```
+
+```{r Load data binary_representations Reverted stimuli, include=FALSE}
+data_pdp_b_r_8_8_2_RS  <- readRDS("final_data/data_pdp_b_r_8_8_2_RS.RData")
+```
+
+```{r binary representation training Reverted stimuli, eval=FALSE, include=FALSE}
+# Super messy simulation of unbiased CPL with reverted stimuli
+
+sims <- 100
+itermax <- 4000
+accuracy <- 0.9
+min_correct <- 10
+threshold <- 0.55
+
+for (i in 1:sims){
+  print(paste("Doing simulation nr", i, "of", sims))
+  pdp_br_pre_1 <- pdp(shift_shapes$X[1:1300, ], y_all[1:1300, ], n_hidden = c(16), 
+         batch_size = 100, n_iter = itermax, learning_rates = c(0.03), momentum = 0.5, 
+         lambda = 0, constrained = c(F), threshold = threshold, accuracy = accuracy, binarize = F, 
+         use_accuracy = T, min_correct = min_correct)
+
+  pdp_br_pre_3 <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_circle[1:1300], n_hidden = c(16, 8), 
+        batch_size = 50, n_iter = itermax, learning_rates = c(0, 0, 0.03), momentum = 0.7,
+        lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T,
+        prev_wts = pdp_br_pre_1$weights, use_accuracy = T, min_correct = min_correct)
+  
+  pdp_br_ed_all <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], n_hidden = c(16, 8), 
+         batch_size = 50, n_iter = itermax, learning_rates = c(0.02, 0.02, 0.02), momentum = 0.5, 
+         lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+         prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+  
+
+  pdp_10_4_rev_all <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], n_hidden = c(16, 8), 
+          batch_size = 50, n_iter = itermax, learning_rates = c(0.02, 0.02, 0.02), momentum = 0.5, 
+          lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+          prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+                        
+  pdp_br_ed_ll <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_big[1:1300], n_hidden = c(16, 8), 
+         batch_size = 50, n_iter = itermax, learning_rates = c(0, 0, 0.02), momentum = 0.5, 
+         lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+         prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+  
+
+  pdp_10_4_rev_ll <- pdp(shift_shapes$X[1:1300, ], shift_shapes$Y_triangle[1:1300], n_hidden = c(16, 8),
+          batch_size = 50, n_iter = itermax, learning_rates = c(0, 0, 0.02), momentum = 0.5, 
+          lambda = 0, constrained = c(F, F), threshold = threshold, accuracy = accuracy, binarize = T, 
+          prev_wts = pdp_br_pre_3$weights, use_accuracy = T, min_correct = min_correct)
+   
+  data_pdp_b_r_8_8_2_RS$pre_1$iterations <- c(data_pdp_b_r_8_8_2_RS$pre_1$iterations, 
+                                            pdp_br_pre_1$iterations)
+  data_pdp_b_r_8_8_2_RS$pre_2$iterations <- c(data_pdp_b_r_8_8_2_RS$pre_3$iterations, 
+                                            pdp_br_pre_3$iterations)
+  data_pdp_b_r_8_8_2_RS$rev_all$iterations <- c(data_pdp_b_r_8_8_2_RS$rev_all$iterations, 
+                                            pdp_10_4_rev_all$iterations)
+  data_pdp_b_r_8_8_2_RS$nrev_all$iterations <- c(data_pdp_b_r_8_8_2_RS$nrev_all$iterations, 
+                                             pdp_br_ed_all$iterations)
+  data_pdp_b_r_8_8_2_RS$rev_ll$iterations <- c(data_pdp_b_r_8_8_2_RS$rev_ll$iterations, 
+                                            pdp_10_4_rev_ll$iterations)
+  data_pdp_b_r_8_8_2_RS$nrev_ll$iterations <- c(data_pdp_b_r_8_8_2_RS$nrev_ll$iterations, 
+                                             pdp_br_ed_ll$iterations)
+}
+
+
+
+```
+
+```{r active neurons binary encoding, echo=FALSE, eval=FALSE}
+# gets active neurons for unbiased CPL
+# will not be executed, will also not work when eval=True!!
+
+get_active_neurons_means(weights = pdp_br_pre_1$weights, data = shift_shapes$X[1:1300, ], true1 = shift_shapes$Y_circle[1:1300], true2 = shift_shapes$Y_big[1:1300], layer = 2, plot_lines = F)
+```
+
+```{r Save Data binary_representations Reverted stimuli, include=FALSE, eval=FALSE}
+# Save data with unbiased CPL and with other stimulus dimension
+
+saveRDS(data_pdp_b_r_8_8_2_RS, file="~final_data/data_pdp_b_r_8_8_2_RS.RData")
+```
+
+```{r Boxplot complex stimuli br_all Reverted stimuli, echo=FALSE}
+# Show boxplot for unbiased cpl with other stimulus dimension
+
+cycles_pdp_b_r_all <- data.frame("rev_all" = data_pdp_b_r_8_8_2_RS$rev_all$iterations, 
+                             "nrev_all" = data_pdp_b_r_8_8_2_RS$nrev_all$iterations)
+
+new_cycles_pdp_b_r_all <- cycles_pdp_b_r_all[, c(1:2)] %>% pivot_longer(c(rev_all, nrev_all), names_to = "shift")
+
+new_cycles_pdp_b_r_all_aov <- aov(value ~ shift, data = new_cycles_pdp_b_r_all)
+summary(new_cycles_pdp_b_r_all_aov)
+
+boxplot(value ~ factor(shift, levels=c("rev_all", "nrev_all")), data=new_cycles_pdp_b_r_all, frame = FALSE, 
+        col = c("#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", ylim = c(0, 4000), cex = 2.5, cex.lab = 2.4, cex.axis = 2, lwd = 3, axes = F)
+axis(1, at = c(1, 2),
+     labels = c("Rev", "Nrev"), cex.axis = 2, lwd = 2)
+axis(2, lwd = 2, cex.axis = 2 )
+# legend("topright", legend = c("rev", "nrev"), 
+#        fill = c("#E7B800", "#ff4800"), bty="n", cex = 2)
+
+```
+
+
+
+```{r Boxplot complex stimuli br_ll Reverted stimuli, echo=FALSE}
+# Show boxplot for unbiased cpl with other stimulus dimension
+cycles_pdp_b_r_ll <- data.frame("rev_ll" = data_pdp_b_r_8_8_2_RS$rev_ll$iterations, 
+                             "nrev_ll" = data_pdp_b_r_8_8_2_RS$nrev_ll$iterations)
+
+new_cycles_pdp_b_r_ll <- cycles_pdp_b_r_ll[, c(1:2)] %>% pivot_longer(c(rev_ll, nrev_ll), names_to = "shift")
+
+new_cycles_pdp_b_r_ll_aov <- aov(value ~ shift, data = new_cycles_pdp_b_r_ll)
+summary(new_cycles_pdp_b_r_ll_aov)
+
+
+boxplot(value ~ factor(shift, levels=c("rev_ll", "nrev_ll")), data=new_cycles_pdp_b_r_ll, frame = FALSE, 
+        col = c("#E7B800", "#ff4800"), xlab = NA, ylab = "Iterations", 
+        xaxt = "n", ylim = c(0, 4000), cex = 2.5, cex.lab = 2.4, cex.axis = 2, lwd = 3, axes = F)
+axis(1, at = c(1, 2),
+     labels = c("Rev", "Nrev"), cex.axis = 2, lwd = 2)
+axis(2, lwd = 2, cex.axis = 2 )
+# legend("topright", legend = c("rev", "nrev"), 
+#        fill = c("#E7B800", "#ff4800"), bty="n", cex = 2)
+
+```
+
+```{r Apa_table pdp_comples_binary_encoding Reverted stimuli, echo=FALSE}
+# Show table for unbiased cpl with other stimulus dimension
+
+mat1_pdp_br <- matrix(round(c(unname(sapply(cycles_pdp_b_r_all[, 1:2], mean))), 2), ncol = 2, byrow = T)
+                                   
+mat2_pdp_br <- matrix(round(c(unname(sapply(cycles_pdp_b_r_all[, 1:2], sd))), 2), ncol = 2, byrow = T)
+mat3_pdp_br <- matrix(c(mat1_pdp_br[, 1], mat2_pdp_br[, 1], mat1_pdp_br[, 2], mat2_pdp_br[, 2], 
+                 c(round(summary(new_cycles_pdp_b_r_all_aov)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_cycles_pdp_b_r_all_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_cycles_pdp_b_r_all_aov)[[1]][5][[1]][1], 3))),
+                  c(summary(new_cycles_pdp_b_r_all_aov)[[1]][1][[1]][2])),
+               ncol = 7)
+
+mat1_pdp_br_ll <- matrix(round(c(unname(sapply(cycles_pdp_b_r_ll[, 1:2], mean))), 2), ncol = 2, byrow = T)
+                                   
+mat2_pdp_br_ll <- matrix(round(c(unname(sapply(cycles_pdp_b_r_ll[, 1:2], sd))), 2), ncol = 2, byrow = T)
+mat3_pdp_br_ll <- matrix(c(mat1_pdp_br_ll[, 1], mat2_pdp_br_ll[, 1], mat1_pdp_br_ll[, 2], mat2_pdp_br_ll[, 2],  c(round(summary(new_cycles_pdp_b_r_ll_aov)[[1]][4][[1]][1], 2)), 
+                 c(ifelse(round(summary(new_cycles_pdp_b_r_ll_aov)[[1]][5][[1]][1], 3) == 0, 
+                          ">0.001", round(summary(new_cycles_pdp_b_r_ll_aov)[[1]][5][[1]][1], 3))),
+                  c(summary(new_cycles_pdp_b_r_ll_aov)[[1]][1][[1]][2])),
+               ncol = 7)
+
+
+mat4_br <- rbind(mat3_pdp_br, mat3_pdp_br_ll)
+colnames(mat4_br) <- c("Mean Reversal shift", "Sd", "Mean Non-reversal shift", "Sd", "F Value", "p", "df")
+
+rownames(mat4_br) <- c("All layers", "Last layer")
+
+knitr::kable(mat4_br)
+
+```
+
+
